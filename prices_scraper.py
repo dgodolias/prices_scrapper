@@ -43,7 +43,7 @@ CURRENCY_SYMBOLS = {
     "BGN": "BGN",
 }
 
-def init_driver(thread_id, proxy=None):
+def init_driver(thread_id):
     chrome_options = Options()
     
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
@@ -62,8 +62,6 @@ def init_driver(thread_id, proxy=None):
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-notifications")
 
-    if proxy:
-        chrome_options.add_argument(f'--proxy-server={proxy}')
 
     return webdriver.Chrome(options=chrome_options)
 
@@ -117,9 +115,9 @@ def perform_google_search(driver, search_query, page_number, country):
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
 
-def google_search_thread(thread_id, search_query, country, proxy=None):
+def google_search_thread(thread_id, search_query, country):
     global current_page
-    driver = init_driver(thread_id, proxy=proxy)
+    driver = init_driver(thread_id)
     
     while True:
         with lock:
@@ -155,14 +153,14 @@ def convert_currencies_to_euro(results):
                 euro_price = price / exchange_rates[currency_code]
                 results[i] = (round(euro_price, 2), "€", link, country_code, country_currency)
 
-def run_search(product, country, proxy=None):
+def run_search(product, country):
     global results, current_page
     results = []  # Clear the results for each search
     current_page = 0  # Reset the current page counter
     
     threads = []
     for i in range(NUM_THREADS):
-        thread = threading.Thread(target=google_search_thread, args=(i+1, product, country, proxy))
+        thread = threading.Thread(target=google_search_thread, args=(i+1, product, country))
         threads.append(thread)
         thread.start()
 
