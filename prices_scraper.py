@@ -164,8 +164,8 @@ def fetch_exchange_rates():
     except Exception as e:
         print(f"Failed to fetch exchange rates: {e}")
 
-def convert_currencies_to_euro():
-    global results
+def convert_currencies_to_euro(results):
+    global exchange_rates
     for i in range(len(results)):
         price, currency_symbol, link, country_code, country_currency = results[i]
         if currency_symbol != "€":
@@ -174,11 +174,35 @@ def convert_currencies_to_euro():
                 euro_price = price / exchange_rates[currency_code]
                 results[i] = (round(euro_price, 2), "€", link, country_code, country_currency)
 
+
 def currency_conversion_thread():
     print("Starting currency conversion thread...")
     fetch_exchange_rates()
     convert_currencies_to_euro()
     print("Currency conversion completed.")
+
+def run_search(product, country):
+    global results
+    results = []  # Clear the results for each search
+
+    # Reset the current page counter
+    global current_page
+    current_page = 0
+    
+    # Create threads to perform the search
+    threads = []
+    for i in range(NUM_THREADS):
+        thread = threading.Thread(target=google_search_thread, args=(i+1, product, country))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to finish
+    for thread in threads:
+        thread.join()
+
+    # Return the results for this search
+    return results
+
 
 def main():
     search_query = input("Enter the search query: ")

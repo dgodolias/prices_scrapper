@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EU Product Price Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EU Product Price Search</h1>
+        <form id="searchForm">
+            <label for="product">Product:</label>
+            <input type="text" id="product" name="product" placeholder="Enter the product name..." required>
+            
+            <label for="country">Country:</label>
+            <select id="country" name="country">
+                <option value="all">All countries</option>
+                <option value="GR">Greece</option>
+                <option value="ES">Spain</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+                <option value="IT">Italy</option>
+                <option value="PT">Portugal</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="IE">Ireland</option>
+                <option value="AT">Austria</option>
+                <option value="SE">Sweden</option>
+                <option value="FI">Finland</option>
+                <option value="DK">Denmark</option>
+                <option value="PL">Poland</option>
+                <option value="CZ">Czech Republic</option>
+                <option value="HU">Hungary</option>
+                <option value="RO">Romania</option>
+                <option value="BG">Bulgaria</option>
+                <option value="HR">Croatia</option>
+                <option value="SI">Slovenia</option>
+                <option value="SK">Slovakia</option>
+                <option value="LT">Lithuania</option>
+                <option value="LV">Latvia</option>
+                <option value="EE">Estonia</option>
+                <option value="LU">Luxembourg</option>
+                <option value="CY">Cyprus</option>
+                <option value="MT">Malta</option>
+            </select>
+            
+            <input type="submit" value="Search">
+        </form>
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById("searchForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const product = document.getElementById("product").value;
+            const country = document.getElementById("country").value;
+
+            fetch("/search", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ product, country })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById("results");
+                resultsDiv.innerHTML = "";
+
+                data.results.forEach((result, index) => {
+                    const resultDiv = document.createElement("div");
+                    resultDiv.className = "result-item";
+                    resultDiv.innerHTML = `${index + 1}. ${result.price} € [${result.country}] <a href="${result.link}" target="_blank">Link</a>`;
+                    resultsDiv.appendChild(resultDiv);
+                });
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    </script>
+</body>
+</html>
