@@ -4,9 +4,9 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Upgrade pip and install Flask, Selenium, and Requests
+# Upgrade pip and install Flask, Selenium, Requests, and Gunicorn
 RUN pip install --upgrade pip && \
-    pip install Flask Selenium requests
+    pip install Flask Selenium requests gunicorn
 
 # Copy the rest of the application code into the container
 COPY . .
@@ -17,5 +17,5 @@ EXPOSE 5000
 # Define environment variable
 ENV FLASK_ENV=production
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application with Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
