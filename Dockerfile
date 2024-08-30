@@ -4,6 +4,17 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Install necessary packages including Chrome and WebDriver
+RUN apt-get update && apt-get install -y \
+    wget \
+    unzip \
+    curl \
+    gnupg2 \
+    libgconf-2-4 \
+    libxss1 \
+    chromium \
+    chromium-driver
+
 # Upgrade pip and install Flask, Selenium, Requests, and Gunicorn
 RUN pip install --upgrade pip && \
     pip install Flask Selenium requests gunicorn
