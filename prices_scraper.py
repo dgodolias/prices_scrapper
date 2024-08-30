@@ -11,10 +11,9 @@ import threading
 
 # Global lock for shared resource
 lock = threading.Lock()
-search_results = []
+results = []
 
 THREADS_NUM = 1  # Only one thread needed for a single Google search
-
 
 def init_driver(thread_id):
     chrome_options = Options()
@@ -53,20 +52,21 @@ def perform_google_search(driver, search_query):
         # Wait for the results to load
         time.sleep(2)
 
-        # Scrape and print the titles of the search results
-        results = driver.find_elements(By.CSS_SELECTOR, 'h3')
-        print(f"Search results for '{search_query}':")
-        for index, result in enumerate(results[:5], start=1):  # Limiting to top 5 results
-            print(f"{index}. {result.text}")
-
-        # Store the results
-        with lock:
-            search_results.extend([result.text for result in results[:5]])
+        # Extract elements with the class 'ChPIuf' containing the euro sign (€)
+        elements = driver.find_elements(By.CSS_SELECTOR, ".ChPIuf")
+        for element in elements:
+            if "€" in element.text:
+                # Find the parent <a> tag with jsname="UWckNb" within the same result block
+                try:
+                    parent_a = element.find_element(By.XPATH, './ancestor::div[contains(@class, "tF2Cxc")]//a[@jsname="UWckNb"]')
+                    link_href = parent_a.get_attribute('href')
+                    # Store the price and link
+                    results.append(f"{element.text} <{link_href}>")
+                except Exception as e:
+                    print(f"Error finding the link for element: {e}")
 
     except Exception as e:
         print(f"Error during Google search: {e}")
-
-
 
 def google_search_thread(thread_id, search_query):
     print(f"Thread {thread_id} started.")
@@ -80,37 +80,6 @@ def google_search_thread(thread_id, search_query):
     except Exception as e:
         print(f"Thread {thread_id} - Error quitting driver: {e}")
 
-def extract_euro_elements_and_links(driver):
-    try:
-        # Find all elements with class 'ChPIuf'
-        euro_elements = driver.find_elements(By.CLASS_NAME, 'ChPIuf')
-        
-        results = []
-        
-        # Loop through the found elements
-        for element in euro_elements:
-            # Check if the text contains the Euro sign (€)
-            if '€' in element.text:
-                # Get the text of the element
-                price_text = element.text
-                
-                # Locate the corresponding <a> tag with the specific jsname attribute
-                link_element = element.find_element(By.XPATH, "./ancestor::a[@jsname='UWckNb']")
-                link_url = link_element.get_attribute('href')
-                
-                # Store the result
-                results.append((price_text, link_url))
-        
-        # Print the results
-        for price_text, link_url in results:
-            print(f"Price: {price_text}, Link: {link_url}")
-            
-        return results
-
-    except Exception as e:
-        print(f"Error extracting Euro elements and links: {e}")
-        return []
-
 def main():
     search_query = input("Enter the search query: ")
 
@@ -123,15 +92,10 @@ def main():
     for thread in threads:
         thread.join()
 
-    # After search is complete, extract Euro elements and links
-    driver = init_driver(1)
-    results = extract_euro_elements_and_links(driver)
-
-    # Print the combined results
-    print("\nFinal Extracted Prices and Links:")
-    for price_text, link_url in results:
-        print(f"Price: {price_text}, Link: {link_url}")
+    # Print the combined results once the thread is done
+    print("\nPrices with Euro Sign (€):")
+    for index, result in enumerate(results, start=1):
+        print(f"{index}. {result}")
 
 if __name__ == "__main__":
     main()
-
