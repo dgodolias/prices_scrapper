@@ -38,6 +38,7 @@ def init_driver(thread_id):
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
     
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("start-maximized")
     chrome_options.add_argument("--disable-extensions")
@@ -54,22 +55,34 @@ def init_driver(thread_id):
 def update_max_pages(driver):
     global max_pages
     try:
+        # Check the last available page number
         page_elements = driver.find_elements(By.XPATH, '//td/a[@aria-label and contains(@aria-label, "Page")]')
         if page_elements:
             last_page_element = page_elements[-1]
-            max_pages = int(last_page_element.text)
-            print(f"Updated max pages to: {max_pages}")
+            page_text = last_page_element.text.strip()
+            
+            # Debug: Print out the page text
+            print(f"Found page text: '{page_text}'")
+            
+            if page_text.isdigit():
+                max_pages = int(page_text)
+                print(f"Updated max pages to: {max_pages}")
+            else:
+                print(f"Skipping non-numeric page text: '{page_text}'")
         else:
             max_pages = 1
+            print("No page elements found, setting max pages to 1.")
     except Exception as e:
         print(f"Error updating max pages: {e}")
+
 
 def perform_google_search(driver, search_query, page_number):
     try:
         time.sleep(random.uniform(1, 3))
         
         start = (page_number - 1) * 10
-        url = f"https://www.google.com/search?q={search_query}&start={start}"
+        # Force the search results to be from Greece
+        url = f"https://www.google.com/search?q={search_query}&start={start}&hl=el&gl=GR"
         driver.get(url)
         
         update_max_pages(driver)
@@ -93,6 +106,7 @@ def perform_google_search(driver, search_query, page_number):
 
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
+
 
 def google_search_thread(thread_id, search_query):
     global current_page
