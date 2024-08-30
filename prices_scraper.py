@@ -3,7 +3,7 @@ import time
 import os
 import re
 import tempfile
-import requests  # To fetch conversion rates
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -24,7 +24,8 @@ exchange_rates = {}
 # EU countries with their respective Google domain, language, currency, and region parameters
 EU_COUNTRIES = [
     {"country_code": "GR", "domain": "google.gr", "lang": "el", "currency": "EUR"},
-
+    {"country_code": "ES", "domain": "google.es", "lang": "es", "currency": "EUR"},
+    # Add more countries as needed...
 ]
 
 # Supported currencies symbols for conversion
@@ -42,13 +43,14 @@ CURRENCY_SYMBOLS = {
     "BGN": "BGN",
 }
 
-def init_driver(thread_id):
+def init_driver(thread_id, proxy=None):
     chrome_options = Options()
     
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
     
-    # Mimic human-like browser behavior
+    # Remove headless mode to allow for GUI interaction
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("start-maximized")
     chrome_options.add_argument("--disable-extensions")
@@ -60,16 +62,10 @@ def init_driver(thread_id):
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-notifications")
 
-    # Set a realistic user agent
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-    chrome_options.add_argument(f"user-agent={user_agent}")
+    if proxy:
+        chrome_options.add_argument(f'--proxy-server={proxy}')
 
-    driver = webdriver.Chrome(options=chrome_options)
-
-    # Set window size to a common value
-    driver.set_window_size(1280, 800)
-
-    return driver
+    return webdriver.Chrome(options=chrome_options)
 
 def update_max_pages(driver):
     global max_pages
@@ -93,20 +89,13 @@ def update_max_pages(driver):
 
 def perform_google_search(driver, search_query, page_number, country):
     try:
-        time.sleep(random.uniform(2, 5))  # Wait before loading the page
+        time.sleep(random.uniform(1, 3))
         
         start = (page_number - 1) * 10
-        # Use the domain and region parameters for the specific country
         url = f"https://{country['domain']}/search?q={search_query}&start={start}&hl={country['lang']}&gl={country['country_code']}&cr=country{country['country_code']}"
         driver.get(url)
         
         update_max_pages(driver)
-
-        # Add scrolling to mimic human behavior
-        scroll_height = driver.execute_script("return document.body.scrollHeight")
-        for i in range(5):  # Scroll down in steps
-            driver.execute_script(f"window.scrollTo(0, {i/4 * scroll_height});")
-            time.sleep(random.uniform(0.5, 1.5))  # Random delay between scrolls
 
         time.sleep(2)
 
@@ -128,9 +117,9 @@ def perform_google_search(driver, search_query, page_number, country):
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
 
-def google_search_thread(thread_id, search_query, country):
+def google_search_thread(thread_id, search_query, country, proxy=None):
     global current_page
-    driver = init_driver(thread_id)
+    driver = init_driver(thread_id, proxy=proxy)
     
     while True:
         with lock:
@@ -166,62 +155,18 @@ def convert_currencies_to_euro(results):
                 euro_price = price / exchange_rates[currency_code]
                 results[i] = (round(euro_price, 2), "€", link, country_code, country_currency)
 
-
-def currency_conversion_thread():
-    print("Starting currency conversion thread...")
-    fetch_exchange_rates()
-    convert_currencies_to_euro(results)
-    print("Currency conversion completed.")
-
-def run_search(product, country):
-    global results
+def run_search(product, country, proxy=None):
+    global results, current_page
     results = []  # Clear the results for each search
-
-    # Reset the current page counter
-    global current_page
-    current_page = 0
+    current_page = 0  # Reset the current page counter
     
-    # Create threads to perform the search
     threads = []
     for i in range(NUM_THREADS):
-        thread = threading.Thread(target=google_search_thread, args=(i+1, product, country))
+        thread = threading.Thread(target=google_search_thread, args=(i+1, product, country, proxy))
         threads.append(thread)
         thread.start()
 
-    # Wait for all threads to finish
     for thread in threads:
         thread.join()
 
-    # Return the results for this search
     return results
-
-def main():
-    search_query = input("Enter the search query: ")
-
-    for country in EU_COUNTRIES:
-        global current_page
-        current_page = 0
-        threads = []
-        for i in range(NUM_THREADS):  
-            thread = threading.Thread(target=google_search_thread, args=(i+1, search_query, country))
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
-
-    # Start a thread for currency conversion
-    conversion_thread = threading.Thread(target=currency_conversion_thread)
-    conversion_thread.start()
-    conversion_thread.join()
-
-    # Sort the results by price (low to high)
-    sorted_results = sorted(results, key=lambda x: x[0])
-
-    # Print the sorted and converted results
-    print("\nPrices with Currency Sign (converted to Euro):")
-    for index, (price, _, link, country_code, _) in enumerate(sorted_results, start=1):
-        print(f"{index}. {price} € [{country_code}] <{link}>")
-
-if __name__ == "__main__":
-    main()

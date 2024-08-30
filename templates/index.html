@@ -39,6 +39,12 @@
             padding: 10px;
             border: 1px solid #ddd;
         }
+        .loading {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -50,8 +56,9 @@
             
             <label for="country">Country:</label>
             <select id="country" name="country">
+                <!-- Set Greece as the default selected option -->
+                <option value="GR" selected>Greece</option>
                 <option value="all">All countries</option>
-                <option value="GR">Greece</option>
                 <option value="ES">Spain</option>
                 <option value="FR">France</option>
                 <option value="DE">Germany</option>
@@ -82,6 +89,7 @@
             
             <input type="submit" value="Search">
         </form>
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
         <div class="results" id="results"></div>
     </div>
 
@@ -91,6 +99,12 @@
 
             const product = document.getElementById("product").value;
             const country = document.getElementById("country").value;
+            const resultsDiv = document.getElementById("results");
+            const loadingDiv = document.getElementById("loading");
+
+            // Clear previous results and show the loading text
+            resultsDiv.innerHTML = "";
+            loadingDiv.style.display = "block";
 
             fetch("/search", {
                 method: "POST",
@@ -101,9 +115,10 @@
             })
             .then(response => response.json())
             .then(data => {
-                const resultsDiv = document.getElementById("results");
-                resultsDiv.innerHTML = "";
+                // Hide the loading text
+                loadingDiv.style.display = "none";
 
+                // Display the results
                 data.results.forEach((result, index) => {
                     const resultDiv = document.createElement("div");
                     resultDiv.className = "result-item";
@@ -111,7 +126,11 @@
                     resultsDiv.appendChild(resultDiv);
                 });
             })
-            .catch(error => console.error("Error:", error));
+            .catch(error => {
+                loadingDiv.style.display = "none";
+                resultsDiv.innerHTML = "Error: " + error;
+                console.error("Error:", error);
+            });
         });
     </script>
 </body>
