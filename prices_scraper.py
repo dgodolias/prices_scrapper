@@ -13,7 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import threading
 
 # Thread number
-NUM_THREADS = 2
+NUM_THREADS = 10
 
 # Global variables for shared lock and page number
 lock = threading.Lock()
@@ -81,8 +81,8 @@ def perform_google_search(driver, search_query, page_number):
         time.sleep(random.uniform(1, 3))
         
         start = (page_number - 1) * 10
-        # Force the search results to be from Greece
-        url = f"https://www.google.com/search?q={search_query}&start={start}&hl=el&gl=GR"
+        # Force the search results to be from Greece using additional parameters
+        url = f"https://www.google.gr/search?q={search_query}&start={start}&hl=el&gl=GR&cr=countryGR"
         driver.get(url)
         
         update_max_pages(driver)
@@ -106,6 +106,7 @@ def perform_google_search(driver, search_query, page_number):
 
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
+
 
 
 def google_search_thread(thread_id, search_query):
