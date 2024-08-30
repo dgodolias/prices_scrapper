@@ -4,9 +4,9 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Upgrade pip and install Flask and Selenium
+# Upgrade pip and install Flask, Selenium, and Requests
 RUN pip install --upgrade pip && \
-    pip install Flask Selenium
+    pip install Flask Selenium requests
 
 # Copy the rest of the application code into the container
 COPY . .
