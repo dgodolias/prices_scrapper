@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 import threading
 
 # Thread number
-NUM_THREADS = 10
+NUM_THREADS = 2
 
 # Global variables for shared lock and page number
 lock = threading.Lock()
@@ -43,29 +43,32 @@ CURRENCY_SYMBOLS = {
     "BGN": "BGN",
 }
 
-def init_driver(thread_id, proxy=None):
+def init_driver(thread_id):
     chrome_options = Options()
     
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
-    
-    # Remove headless mode to allow for GUI interaction
-    chrome_options.add_argument("--headless=new")
+
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("start-maximized")
-    chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("start-maximized")
+    chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--no-first-run")
     chrome_options.add_argument("--no-default-browser-check")
     chrome_options.add_argument("--disable-popup-blocking")
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("window-size=1280x720")  # Use lower resolution to reduce memory usage
 
-    if proxy:
-        chrome_options.add_argument(f'--proxy-server={proxy}')
+    # Set a realistic user agent
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    chrome_options.add_argument(f"user-agent={user_agent}")
 
-    return webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(options=chrome_options)
+    return driver
+
 
 def update_max_pages(driver):
     global max_pages
