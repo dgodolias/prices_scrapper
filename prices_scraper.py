@@ -24,32 +24,7 @@ exchange_rates = {}
 # EU countries with their respective Google domain, language, currency, and region parameters
 EU_COUNTRIES = [
     {"country_code": "GR", "domain": "google.gr", "lang": "el", "currency": "EUR"},
-    {"country_code": "ES", "domain": "google.es", "lang": "es", "currency": "EUR"},
-    {"country_code": "FR", "domain": "google.fr", "lang": "fr", "currency": "EUR"},
-    {"country_code": "DE", "domain": "google.de", "lang": "de", "currency": "EUR"},
-    {"country_code": "IT", "domain": "google.it", "lang": "it", "currency": "EUR"},
-    {"country_code": "PT", "domain": "google.pt", "lang": "pt", "currency": "EUR"},
-    {"country_code": "NL", "domain": "google.nl", "lang": "nl", "currency": "EUR"},
-    {"country_code": "BE", "domain": "google.be", "lang": "nl", "currency": "EUR"},
-    {"country_code": "IE", "domain": "google.ie", "lang": "en", "currency": "EUR"},
-    {"country_code": "AT", "domain": "google.at", "lang": "de", "currency": "EUR"},
-    {"country_code": "SE", "domain": "google.se", "lang": "sv", "currency": "SEK"},
-    {"country_code": "FI", "domain": "google.fi", "lang": "fi", "currency": "EUR"},
-    {"country_code": "DK", "domain": "google.dk", "lang": "da", "currency": "DKK"},
-    {"country_code": "PL", "domain": "google.pl", "lang": "pl", "currency": "PLN"},
-    {"country_code": "CZ", "domain": "google.cz", "lang": "cs", "currency": "CZK"},
-    {"country_code": "HU", "domain": "google.hu", "lang": "hu", "currency": "HUF"},
-    {"country_code": "RO", "domain": "google.ro", "lang": "ro", "currency": "RON"},
-    {"country_code": "BG", "domain": "google.bg", "lang": "bg", "currency": "BGN"},
-    {"country_code": "HR", "domain": "google.hr", "lang": "hr", "currency": "EUR"},
-    {"country_code": "SI", "domain": "google.si", "lang": "sl", "currency": "EUR"},
-    {"country_code": "SK", "domain": "google.sk", "lang": "sk", "currency": "EUR"},
-    {"country_code": "LT", "domain": "google.lt", "lang": "lt", "currency": "EUR"},
-    {"country_code": "LV", "domain": "google.lv", "lang": "lv", "currency": "EUR"},
-    {"country_code": "EE", "domain": "google.ee", "lang": "et", "currency": "EUR"},
-    {"country_code": "LU", "domain": "google.lu", "lang": "fr", "currency": "EUR"},
-    {"country_code": "CY", "domain": "google.com.cy", "lang": "el", "currency": "EUR"},
-    {"country_code": "MT", "domain": "google.com.mt", "lang": "en", "currency": "EUR"},
+
 ]
 
 # Supported currencies symbols for conversion
@@ -73,7 +48,7 @@ def init_driver(thread_id):
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
     
-    chrome_options.add_argument("--headless=new")
+    # Mimic human-like browser behavior
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("start-maximized")
     chrome_options.add_argument("--disable-extensions")
@@ -85,7 +60,16 @@ def init_driver(thread_id):
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-notifications")
 
-    return webdriver.Chrome(options=chrome_options)
+    # Set a realistic user agent
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    chrome_options.add_argument(f"user-agent={user_agent}")
+
+    driver = webdriver.Chrome(options=chrome_options)
+
+    # Set window size to a common value
+    driver.set_window_size(1280, 800)
+
+    return driver
 
 def update_max_pages(driver):
     global max_pages
@@ -104,10 +88,12 @@ def update_max_pages(driver):
             print("No page elements found, setting max pages to 1.")
     except Exception as e:
         print(f"Error updating max pages: {e}")
+        print("Sleeping for 60 seconds before retrying...")
+        time.sleep(60)
 
 def perform_google_search(driver, search_query, page_number, country):
     try:
-        time.sleep(random.uniform(1, 3))
+        time.sleep(random.uniform(2, 5))  # Wait before loading the page
         
         start = (page_number - 1) * 10
         # Use the domain and region parameters for the specific country
@@ -115,6 +101,12 @@ def perform_google_search(driver, search_query, page_number, country):
         driver.get(url)
         
         update_max_pages(driver)
+
+        # Add scrolling to mimic human behavior
+        scroll_height = driver.execute_script("return document.body.scrollHeight")
+        for i in range(5):  # Scroll down in steps
+            driver.execute_script(f"window.scrollTo(0, {i/4 * scroll_height});")
+            time.sleep(random.uniform(0.5, 1.5))  # Random delay between scrolls
 
         time.sleep(2)
 
@@ -178,7 +170,7 @@ def convert_currencies_to_euro(results):
 def currency_conversion_thread():
     print("Starting currency conversion thread...")
     fetch_exchange_rates()
-    convert_currencies_to_euro()
+    convert_currencies_to_euro(results)
     print("Currency conversion completed.")
 
 def run_search(product, country):
@@ -202,7 +194,6 @@ def run_search(product, country):
 
     # Return the results for this search
     return results
-
 
 def main():
     search_query = input("Enter the search query: ")

@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 import threading
-import prices_scraper
-
+import prices_scraper  # Import your scraper script
 
 app = Flask(__name__)
 
