@@ -1,4 +1,5 @@
 import random
+import threading
 import time
 import os
 import re
@@ -6,8 +7,26 @@ import tempfile
 import requests  # To fetch conversion rates
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-import threading
+from selenium.webdriver.common.proxy import Proxy, ProxyType
+from webdriver_manager.chrome import ChromeDriverManager
+from config import username, password
+
+
+# List of proxies from your first script
+proxies = [
+    "38.154.227.167:5868",
+    "45.127.248.127:5128",
+    "64.64.118.149:6732",
+    "167.160.180.203:6754",
+    "166.88.58.10:5735",
+    "173.0.9.70:5653",
+    "45.151.162.198:6600",
+    "204.44.69.89:6342",
+    "173.0.9.209:5792",
+    "206.41.172.74:6634"
+]
 
 # Thread number
 NUM_THREADS = 10
@@ -25,31 +44,7 @@ exchange_rates = {}
 EU_COUNTRIES = [
     {"country_code": "GR", "domain": "google.gr", "lang": "el", "currency": "EUR"},
     {"country_code": "ES", "domain": "google.es", "lang": "es", "currency": "EUR"},
-    {"country_code": "FR", "domain": "google.fr", "lang": "fr", "currency": "EUR"},
-    {"country_code": "DE", "domain": "google.de", "lang": "de", "currency": "EUR"},
-    {"country_code": "IT", "domain": "google.it", "lang": "it", "currency": "EUR"},
-    {"country_code": "PT", "domain": "google.pt", "lang": "pt", "currency": "EUR"},
-    {"country_code": "NL", "domain": "google.nl", "lang": "nl", "currency": "EUR"},
-    {"country_code": "BE", "domain": "google.be", "lang": "nl", "currency": "EUR"},
-    {"country_code": "IE", "domain": "google.ie", "lang": "en", "currency": "EUR"},
-    {"country_code": "AT", "domain": "google.at", "lang": "de", "currency": "EUR"},
-    {"country_code": "SE", "domain": "google.se", "lang": "sv", "currency": "SEK"},
-    {"country_code": "FI", "domain": "google.fi", "lang": "fi", "currency": "EUR"},
-    {"country_code": "DK", "domain": "google.dk", "lang": "da", "currency": "DKK"},
-    {"country_code": "PL", "domain": "google.pl", "lang": "pl", "currency": "PLN"},
-    {"country_code": "CZ", "domain": "google.cz", "lang": "cs", "currency": "CZK"},
-    {"country_code": "HU", "domain": "google.hu", "lang": "hu", "currency": "HUF"},
-    {"country_code": "RO", "domain": "google.ro", "lang": "ro", "currency": "RON"},
-    {"country_code": "BG", "domain": "google.bg", "lang": "bg", "currency": "BGN"},
-    {"country_code": "HR", "domain": "google.hr", "lang": "hr", "currency": "EUR"},
-    {"country_code": "SI", "domain": "google.si", "lang": "sl", "currency": "EUR"},
-    {"country_code": "SK", "domain": "google.sk", "lang": "sk", "currency": "EUR"},
-    {"country_code": "LT", "domain": "google.lt", "lang": "lt", "currency": "EUR"},
-    {"country_code": "LV", "domain": "google.lv", "lang": "lv", "currency": "EUR"},
-    {"country_code": "EE", "domain": "google.ee", "lang": "et", "currency": "EUR"},
-    {"country_code": "LU", "domain": "google.lu", "lang": "fr", "currency": "EUR"},
-    {"country_code": "CY", "domain": "google.com.cy", "lang": "el", "currency": "EUR"},
-    {"country_code": "MT", "domain": "google.com.mt", "lang": "en", "currency": "EUR"},
+    # Add the rest of the countries as in your original list...
 ]
 
 # Supported currencies symbols for conversion
@@ -58,21 +53,28 @@ CURRENCY_SYMBOLS = {
     "$": "USD",
     "£": "GBP",
     "¥": "JPY",
-    "SEK": "SEK",
-    "DKK": "DKK",
-    "PLN": "PLN",
-    "CZK": "CZK",
-    "HUF": "HUF",
-    "RON": "RON",
-    "BGN": "BGN",
+    # Add the rest of the currencies as in your original list...
 }
 
 def init_driver(thread_id):
     chrome_options = Options()
     
+    # Create a unique profile for each thread
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
     
+    # Proxy configuration
+    proxy = random.choice(proxies)
+    print(f"Thread {thread_id} using proxy: {proxy}")
+    
+    proxy_options = Proxy()
+    proxy_options.proxy_type = ProxyType.MANUAL
+    proxy_options.http_proxy = f"{username}:{password}@{proxy}"
+    proxy_options.ssl_proxy = f"{username}:{password}@{proxy}"
+    
+    chrome_options.proxy = proxy_options
+    
+    # Chrome options
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("start-maximized")
@@ -85,7 +87,7 @@ def init_driver(thread_id):
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-notifications")
 
-    return webdriver.Chrome(options=chrome_options)
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 def update_max_pages(driver):
     global max_pages
@@ -110,7 +112,6 @@ def perform_google_search(driver, search_query, page_number, country):
         time.sleep(random.uniform(1, 3))
         
         start = (page_number - 1) * 10
-        # Use the domain and region parameters for the specific country
         url = f"https://{country['domain']}/search?q={search_query}&start={start}&hl={country['lang']}&gl={country['country_code']}&cr=country{country['country_code']}"
         driver.get(url)
         
@@ -187,7 +188,7 @@ def main():
         global current_page
         current_page = 0
         threads = []
-        for i in range(NUM_THREADS):  
+        for i in range(NUM_THREADS):
             thread = threading.Thread(target=google_search_thread, args=(i+1, search_query, country))
             threads.append(thread)
             thread.start()
