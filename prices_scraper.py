@@ -11,22 +11,46 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from webdriver_manager.chrome import ChromeDriverManager
-from config import username, password
+import config
 
+# Dictionary of proxy groups with their corresponding credentials
+proxy_groups = {
+    "group1": {
+        "username": config.user1,
+        "password": config.pass1,
+        "proxies": [
+            "38.154.227.167:5868",
+            "45.127.248.127:5128",
+            "64.64.118.149:6732",
+            "167.160.180.203:6754",
+            "166.88.58.10:5735",
+            "173.0.9.70:5653",
+            "45.151.162.198:6600",
+            "204.44.69.89:6342",
+            "173.0.9.209:5792",
+            "206.41.172.74:6634"
+        ]
+    },
+    "group2": {
+        "username": config.user2,
+        "password": config.pass2,
+        "proxies": [
+            "38.154.227.167:5868",
+            "45.127.248.127:5128",
+            "64.64.118.149:6732",
+            "167.160.180.203:6754",
+            "166.88.58.10:5735",
+            "173.0.9.70:5653",
+            "45.151.162.198:6600",
+            "204.44.69.89:6342",
+            "173.0.9.209:5792",
+            "206.41.172.74:6634"
+        ]
+    },
+}
 
-# List of proxies from your first script
-proxies = [
-    "38.154.227.167:5868",
-    "45.127.248.127:5128",
-    "64.64.118.149:6732",
-    "167.160.180.203:6754",
-    "166.88.58.10:5735",
-    "173.0.9.70:5653",
-    "45.151.162.198:6600",
-    "204.44.69.89:6342",
-    "173.0.9.209:5792",
-    "206.41.172.74:6634"
-]
+# Combine all proxies into a single list for random selection
+all_proxies = [(group, proxy) for group, data in proxy_groups.items() for proxy in data['proxies']]
 
 # Thread number
 NUM_THREADS = 10
@@ -43,8 +67,6 @@ exchange_rates = {}
 # EU countries with their respective Google domain, language, currency, and region parameters
 EU_COUNTRIES = [
     {"country_code": "GR", "domain": "google.gr", "lang": "el", "currency": "EUR"},
-    {"country_code": "ES", "domain": "google.es", "lang": "es", "currency": "EUR"},
-    # Add the rest of the countries as in your original list...
 ]
 
 # Supported currencies symbols for conversion
@@ -56,6 +78,10 @@ CURRENCY_SYMBOLS = {
     # Add the rest of the currencies as in your original list...
 }
 
+def get_proxy_credentials(group, proxy):
+    """Return the username and password for the given proxy and group."""
+    return proxy_groups[group]['username'], proxy_groups[group]['password']
+
 def init_driver(thread_id):
     chrome_options = Options()
     
@@ -63,19 +89,23 @@ def init_driver(thread_id):
     user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{thread_id}")
     chrome_options.add_argument(f"user-data-dir={user_data_dir}")
     
-    # Proxy configuration
-    proxy = random.choice(proxies)
-    print(f"Thread {thread_id} using proxy: {proxy}")
-    
-    proxy_options = Proxy()
-    proxy_options.proxy_type = ProxyType.MANUAL
-    proxy_options.http_proxy = f"{username}:{password}@{proxy}"
-    proxy_options.ssl_proxy = f"{username}:{password}@{proxy}"
-    
-    chrome_options.proxy = proxy_options
-    
+    # Proxy configuration: Only if proxies list is not empty
+    if all_proxies:
+        group, proxy = random.choice(all_proxies)
+        username, password = get_proxy_credentials(group, proxy)
+        print(f"Thread {thread_id} using proxy: {proxy} from group {group} with credentials {username}/{password}")
+        
+        proxy_options = Proxy()
+        proxy_options.proxy_type = ProxyType.MANUAL
+        proxy_options.http_proxy = f"{username}:{password}@{proxy}"
+        proxy_options.ssl_proxy = f"{username}:{password}@{proxy}"
+        
+        chrome_options.proxy = proxy_options
+    else:
+        print(f"Thread {thread_id} is running without a proxy")
+
     # Chrome options
-    chrome_options.add_argument("--headless=new")
+    #chrome_options.add_argument("--headless=new")  # Uncomment if you want to run in headless mode
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("start-maximized")
     chrome_options.add_argument("--disable-extensions")
