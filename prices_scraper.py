@@ -4,56 +4,31 @@ import time
 import os
 import re
 import tempfile
-import requests  # To fetch conversion rates
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from webdriver_manager.chrome import ChromeDriverManager
-import config
 
-# Dictionary of proxy groups with their corresponding credentials
-proxy_groups = {
-    "group1": {
-        "username": config.user1,
-        "password": config.pass1,
-        "proxies": [
-            "38.154.227.167:5868",
-            "45.127.248.127:5128",
-            "64.64.118.149:6732",
-            "167.160.180.203:6754",
-            "166.88.58.10:5735",
-            "173.0.9.70:5653",
-            "45.151.162.198:6600",
-            "204.44.69.89:6342",
-            "173.0.9.209:5792",
-            "206.41.172.74:6634"
-        ]
-    },
-    "group2": {
-        "username": config.user2,
-        "password": config.pass2,
-        "proxies": [
-            "38.154.227.167:5868",
-            "45.127.248.127:5128",
-            "64.64.118.149:6732",
-            "167.160.180.203:6754",
-            "166.88.58.10:5735",
-            "173.0.9.70:5653",
-            "45.151.162.198:6600",
-            "204.44.69.89:6342",
-            "173.0.9.209:5792",
-            "206.41.172.74:6634"
-        ]
-    },
-}
+# Load proxies from file
+def load_proxies(file_path):
+    proxies = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if line:
+                ip, port, username, password = line.split(':')
+                proxies.append((ip, port, username, password))
+    return proxies
 
-# Combine all proxies into a single list for random selection
-all_proxies = [(group, proxy) for group, data in proxy_groups.items() for proxy in data['proxies']]
+# Path to your proxies file
+proxies_file_path = "100proxies.txt"
+all_proxies = load_proxies(proxies_file_path)
 
 # Thread number
-NUM_THREADS = 10
+NUM_THREADS = 3
 
 # Global variables for shared lock and page number
 lock = threading.Lock()
@@ -78,10 +53,6 @@ CURRENCY_SYMBOLS = {
     # Add the rest of the currencies as in your original list...
 }
 
-def get_proxy_credentials(group, proxy):
-    """Return the username and password for the given proxy and group."""
-    return proxy_groups[group]['username'], proxy_groups[group]['password']
-
 def init_driver(thread_id):
     chrome_options = Options()
     
@@ -91,9 +62,9 @@ def init_driver(thread_id):
     
     # Proxy configuration: Only if proxies list is not empty
     if all_proxies:
-        group, proxy = random.choice(all_proxies)
-        username, password = get_proxy_credentials(group, proxy)
-        print(f"Thread {thread_id} using proxy: {proxy} from group {group} with credentials {username}/{password}")
+        ip, port, username, password = random.choice(all_proxies)
+        proxy = f"{ip}:{port}"
+        print(f"Thread {thread_id} using proxy: {proxy} with credentials {username}/{password}")
         
         proxy_options = Proxy()
         proxy_options.proxy_type = ProxyType.MANUAL
