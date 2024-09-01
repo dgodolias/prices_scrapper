@@ -53,6 +53,36 @@ CURRENCY_SYMBOLS = {
     # Add the rest of the currencies as in your original list...
 }
 
+def capsolver(api_key, site_key, site_url):
+    payload = {
+        "clientKey": api_key,
+        "task": {
+            "type": 'ReCaptchaV2TaskProxyLess',
+            "websiteKey": site_key,
+            "websiteURL": site_url
+        }
+    }
+    res = requests.post("https://api.capsolver.com/createTask", json=payload)
+    resp = res.json()
+    task_id = resp.get("taskId")
+    if not task_id:
+        print("Failed to create task:", res.text)
+        return None
+    print(f"Got taskId: {task_id} / Getting result...")
+
+    while True:
+        time.sleep(3)  # delay
+        payload = {"clientKey": api_key, "taskId": task_id}
+        res = requests.post("https://api.capsolver.com/getTaskResult", json=payload)
+        resp = res.json()
+        status = resp.get("status")
+        if status == "ready":
+            return resp.get("solution", {}).get('gRecaptchaResponse')
+        if status == "failed" or resp.get("errorId"):
+            print("Solve failed! response:", res.text)
+            return None
+
+
 def init_driver(thread_id):
     chrome_options = Options()
     
@@ -111,14 +141,39 @@ def update_max_pages(driver):
 def perform_google_search(driver, search_query, page_number, country):
     try:
         time.sleep(random.uniform(1, 3))
-        
+
         start = (page_number - 1) * 10
         url = f"https://{country['domain']}/search?q={search_query}&start={start}&hl={country['lang']}&gl={country['country_code']}&cr=country{country['country_code']}"
         driver.get(url)
-        
-        update_max_pages(driver)
 
-        time.sleep(2)
+        # Check if a CAPTCHA is present
+        if "captcha" in driver.page_source.lower():
+            print("CAPTCHA detected! Attempting to solve...")
+
+            # Click on the CAPTCHA checkbox
+            checkbox = driver.find_element(By.CSS_SELECTOR, ".recaptcha-checkbox-border")
+            checkbox.click()
+
+            # Solve CAPTCHA using CapSolver
+            site_key = driver.find_element(By.CSS_SELECTOR, "div.g-recaptcha").get_attribute("data-sitekey")
+            api_key = "YOUR_CAPSOLVER_API_KEY"  # Replace with your CapSolver API key
+            token = capsolver(api_key, site_key, url)
+            
+            if token:
+                # Inject the CAPTCHA token into the form
+                driver.execute_script(f'document.getElementById("g-recaptcha-response").innerHTML="{token}";')
+
+                # Verify and submit the CAPTCHA
+                verify_button = driver.find_element(By.ID, "recaptcha-verify-button")
+                verify_button.click()
+
+                print("CAPTCHA solved and form submitted.")
+                time.sleep(2)  # Give time for CAPTCHA verification
+            else:
+                print("Failed to solve CAPTCHA. Skipping this search.")
+                return
+
+        update_max_pages(driver)
 
         elements = driver.find_elements(By.CSS_SELECTOR, ".ChPIuf")
         for element in elements:
@@ -137,6 +192,8 @@ def perform_google_search(driver, search_query, page_number, country):
 
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
+
+
 
 def google_search_thread(thread_id, search_query, country):
     global current_page
