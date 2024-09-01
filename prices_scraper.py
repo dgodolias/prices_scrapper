@@ -5,12 +5,14 @@ import os
 import re
 import tempfile
 import requests
+from config import *
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from webdriver_manager.chrome import ChromeDriverManager
+from python3_capsolver.recaptcha import ReCaptcha
 
 # Load proxies from file
 def load_proxies(file_path):
@@ -28,7 +30,7 @@ proxies_file_path = "100proxies.txt"
 all_proxies = load_proxies(proxies_file_path)
 
 # Thread number
-NUM_THREADS = 3
+NUM_THREADS = 1
 
 # Global variables for shared lock and page number
 lock = threading.Lock()
@@ -52,6 +54,7 @@ CURRENCY_SYMBOLS = {
     "¥": "JPY",
     # Add the rest of the currencies as in your original list...
 }
+
 
 def init_driver(thread_id):
     chrome_options = Options()
@@ -115,7 +118,36 @@ def perform_google_search(driver, search_query, page_number, country):
         start = (page_number - 1) * 10
         url = f"https://{country['domain']}/search?q={search_query}&start={start}&hl={country['lang']}&gl={country['country_code']}&cr=country{country['country_code']}"
         driver.get(url)
-        
+
+        # Check for CAPTCHA presence
+        if "captcha" in driver.page_source.lower():
+            print("CAPTCHA detected! Attempting to solve...")
+            
+            # Attempt to find site key
+            try:
+                site_key_element = driver.find_element(By.CSS_SELECTOR, "div.g-recaptcha")
+                site_key = site_key_element.get_attribute("data-sitekey")
+                print(f"Site key found: {site_key}")
+                
+                # Solve the CAPTCHA using CapSolver
+                api_key = capsolver_api_key  # Your CapSolver API key
+                token = capsolver(api_key, site_key, url)
+                
+                if token:
+                    # Inject the token into the page and submit
+                    driver.execute_script(f'document.getElementById("g-recaptcha-response").innerHTML="{token}";')
+                    driver.execute_script("document.forms[0].submit();")
+                    time.sleep(5)  # Wait for the page to reload
+
+                    print("CAPTCHA solved and form submitted.")
+                else:
+                    print("Failed to solve CAPTCHA.")
+                    return
+
+            except Exception as e:
+                print(f"Error while handling CAPTCHA: {e}")
+                return
+
         update_max_pages(driver)
 
         time.sleep(2)
@@ -137,6 +169,40 @@ def perform_google_search(driver, search_query, page_number, country):
 
     except Exception as e:
         print(f"Error during Google search on page {page_number}: {e}")
+
+
+
+def capsolver(api_key, site_key, site_url):
+    payload = {
+        "clientKey": api_key,
+        "task": {
+            "type": 'ReCaptchaV2TaskProxyLess',
+            "websiteKey": site_key,
+            "websiteURL": site_url
+        }
+    }
+    res = requests.post("https://api.capsolver.com/createTask", json=payload)
+    resp = res.json()
+    task_id = resp.get("taskId")
+    if not task_id:
+        print("Failed to create task:", res.text)
+        return None
+    print(f"Got taskId: {task_id} / Getting result...")
+
+    while True:
+        time.sleep(3)  # delay
+        payload = {"clientKey": api_key, "taskId": task_id}
+        res = requests.post("https://api.capsolver.com/getTaskResult", json=payload)
+        resp = res.json()
+        status = resp.get("status")
+        if status == "ready":
+            return resp.get("solution", {}).get('gRecaptchaResponse')
+        if status == "failed" or resp.get("errorId"):
+            print("Solve failed! response:", res.text)
+            return None
+
+
+
 
 def google_search_thread(thread_id, search_query, country):
     global current_page
